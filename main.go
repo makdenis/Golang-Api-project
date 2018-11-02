@@ -1,34 +1,9 @@
-//package main
-//
-//import (
-//	"database/sql"
-//	"fmt"
-//)
-//const (
-//	DB_USER     = "test_user"
-//	DB_PASSWORD = "1"
-//	DB_NAME     = "test"
-//)
-//func main() {
-//	//dbinfo := "user=test_user password=1 dbname=test sslmode=disable"
-//	db, _ := sql.Open("postgres", "postgres://test_user:1@localhost/test")
-//	//checkErr(err)
-//	fmt.Println("fff")
-//
-//	defer db.Close()
-//}
-//
-//func checkErr(err error) {
-//	if err != nil {
-//		panic(err)
-//	}
-//}
 
 
 package main
 
 import (
-	"GODB/controllers"
+	"github.com/makdenis/Golang-Api-project/controllers"
 	"database/sql"
 	"fmt"
 	"github.com/FogCreek/mini"

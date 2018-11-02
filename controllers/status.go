@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"GODB/Models"
+	"github.com/makdenis/Golang-Api-project/Models"
 	"database/sql"
 	"fmt"
 	"net/http"

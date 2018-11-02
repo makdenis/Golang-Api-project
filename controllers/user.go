@@ -4,12 +4,13 @@ import (
 	"GODB/Models"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
 )
 
-type err struct{
-	message string `json:"message"`
+type errr struct{
+	Message string `json:"message"`
 }
 func CreateUser(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request) {
 	//fmt.Println(Db)
@@ -92,7 +93,7 @@ func GetUser(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request) 
 	user=GetUsersByEmailOrNick(Db,"", nickname)
 	if len(user)==0{
 		respWriter.WriteHeader(http.StatusNotFound)
-		tmp:=err{"Can't find user by nickname: "+nickname}
+		tmp:=errr{"Can't find user by nickname: "+nickname}
 		writeJSONBody(&respWriter, tmp)
 	}else{
 		respWriter.WriteHeader(http.StatusOK)
@@ -128,7 +129,7 @@ func UpdateUser(Db *sql.DB, respWriter http.ResponseWriter, request *http.Reques
 	conflictUsers := GetUsersByEmailOrNick(Db, "", user.Nickname)
 	if len(conflictUsers) == 0 {
 		respWriter.WriteHeader(http.StatusNotFound)
-		tmp:=err{"Can't find user by nickname: "+nickname}
+		tmp:=errr{"Can't find user by nickname: "+nickname}
 		writeJSONBody(&respWriter, tmp)
 		return
 	}
@@ -137,7 +138,7 @@ func UpdateUser(Db *sql.DB, respWriter http.ResponseWriter, request *http.Reques
 	conflictEmails := GetUsersByEmailOrNick(Db, user.Email,"")
 	if len(conflictEmails) != 0 {
 		respWriter.WriteHeader(http.StatusConflict)
-		tmp:=err{"This email is already registered by user: "+conflictEmails[0].Nickname}
+		tmp:=errr{"This email is already registered by user: "+conflictEmails[0].Nickname}
 		writeJSONBody(&respWriter, tmp)
 		return
 	}
@@ -161,3 +162,92 @@ func UpdateUser(Db *sql.DB, respWriter http.ResponseWriter, request *http.Reques
 		respWriter.WriteHeader(http.StatusOK)
 		writeJSONBody(&respWriter, user)
 	}
+func GetSortedUsers(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request) {
+	//fmt.Println(Db)
+	respWriter.Header().Set("Content-Type", "application/json; charset=utf-8")
+	var limit string
+	var since string
+	var desc bool
+	forum := mux.Vars(request)["slug"]
+	if (request.URL.Query()["limit"] != nil) {
+		limit = request.URL.Query()["limit"][0]
+	}
+
+	if (request.URL.Query()["since"] != nil) {
+		since = request.URL.Query()["since"][0]
+
+	}
+	if (request.URL.Query()["desc"] != nil) {
+		if request.URL.Query()["desc"][0] == "true" {
+			desc = true
+		} else {
+			desc = false
+		}
+	}
+	//}
+	users := make([]Models.User, 0)
+	//nickname::text, about::text, email::text, fullname::text  from
+	query := `SELECT about, fullname, email, nickname  FROM (
+    SELECT about, fullname, email, nickname  FROM users AS u1
+    JOIN threads AS t
+    ON u1.nickname = t.author
+    where lower(t.forum) = lower($1)
+UNION SELECT about, fullname, email, nickname FROM users AS u2
+    JOIN posts2 AS p
+    ON u2.nickname = p.author
+    where lower(p.forum) = lower($1)
+    ) as res `
+	//fmt.Println(limit)
+
+	if since != "" {
+		if desc {
+			query += ` where lower(nickname) < lower($2) COLLATE "ucs_basic" `
+		} else {
+			query += ` where lower(nickname) > lower($2) COLLATE "ucs_basic" `
+		}
+
+	}
+	query += `ORDER BY lower(nickname) COLLATE "ucs_basic" `
+	if desc {
+		query += " desc"
+	}
+	if limit != "" {
+		query += " limit " + limit
+	}
+	//fmt.Println(query)
+	var resultRows *sql.Rows
+	var err error
+	if since != "" {
+		resultRows, err = Db.Query(query, forum, since)
+
+	} else {
+		resultRows, err = Db.Query(query, forum)
+	}
+
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer resultRows.Close()
+
+	for resultRows.Next() {
+		user := new(Models.User)
+		err := resultRows.Scan(&user.About, &user.Fullname, &user.Email, &user.Nickname)
+		if err != nil {
+			panic(err)
+		}
+
+		users = append(users, *user)
+	}
+	forums:=GetForumBySlug(Db,forum)
+	if len(forums)==0{
+		respWriter.WriteHeader(http.StatusNotFound)
+		tmp:=errr{"Can't find user by nickname: "+forum}
+		writeJSONBody(&respWriter, tmp)
+
+	}else {
+		respWriter.WriteHeader(http.StatusOK)
+		writeJSONBody(&respWriter, users)
+
+
+	}
+}

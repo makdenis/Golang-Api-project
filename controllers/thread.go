@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -29,11 +30,11 @@ func CreateThread(Db *sql.DB, respWriter http.ResponseWriter, request *http.Requ
 	//fmt.Println(res)
 	if(forumName==""){
 		respWriter.WriteHeader(http.StatusNotFound)
-		tmp2:=err{"Can't find user with nickname: "+slug}
+		tmp2:=errr{"Can't find user with nickname: "+slug}
 		writeJSONBody(&respWriter, tmp2)
 		return
 	}
-	fmt.Println(forumName)
+//	fmt.Println(forumName)
 	thread.Forum=forumName
 	if !res && checkThreads==nil {
 		return}
@@ -80,13 +81,13 @@ func AddThread(Db *sql.DB, slug, author, forum string, respWriter http.ResponseW
 	checkuser:=GetUsersByEmailOrNick(Db,"",author)
 	if len(checkuser)==0{
 		respWriter.WriteHeader(http.StatusNotFound)
-		tmp:=err{"Can't find user with nickname: "+author}
+		tmp:=errr{"Can't find user with nickname: "+author}
 		writeJSONBody(&respWriter, tmp)
 		return false, nil, forumName
 	}
 	var checkThreads []Models.Thread
 	if slug!=""{
-	checkThreads=GetThreadBySlug(Db,slug)}
+	checkThreads=GetThreadBySlugorID(Db,slug,0)}
 	//if len(checkThreads)==0{
 	//	respWriter.WriteHeader(http.StatusNotFound)
 	//	tmp:=err{"Can't find user with nickname: "+forum.User}
@@ -134,26 +135,29 @@ func GetThread(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request
 	//fmt.Println(threads)
 	if len(forums)==0{
 		respWriter.WriteHeader(http.StatusNotFound)
-		tmp:=err{"Can't find user by slug: "+forum}
+		tmp:=errr{"Can't find user by slug: "+forum}
 		writeJSONBody(&respWriter, tmp)
 	}else{
+
 		respWriter.WriteHeader(http.StatusOK)
 		writeJSONBody(&respWriter, threads)
 	}
 }
 
-func GetThreadBySlug(Db *sql.DB, slug string) []Models.Thread {
+func GetThreadBySlugorID(Db *sql.DB, slug string,id int) []Models.Thread {
 	threads := make([]Models.Thread, 0)
-	query:="SELECT author::text, created::timestamp, forum::text, id::integer, message::text, slug::text,title::text, votes::integer FROM threads WHERE LOWER(slug) = LOWER($1) "
+
+	query:="SELECT author::text, created::timestamp, forum::text, id::integer, message::text, slug::text,title::text, votes::integer FROM threads WHERE LOWER(slug) = LOWER($1) or id = $2 "
 
 	var resultRows *sql.Rows
 
 
 
 	//fmt.Println(query)
-	resultRows,_= Db.Query(query, slug)
+	resultRows,errr:= Db.Query(query, slug,id)
 
-	//fmt.Println(err)
+	if errr!=nil{
+		fmt.Println(errr)}
 	//fmt.Println(err)
 	defer resultRows.Close()
 
@@ -164,7 +168,7 @@ func GetThreadBySlug(Db *sql.DB, slug string) []Models.Thread {
 
 		threads = append(threads, *thread)
 	}
-
+	resultRows.Close()
 	return threads
 }
 
@@ -227,7 +231,8 @@ func GetThreadById(Db *sql.DB, id int, slug string) []Models.Thread {
 	//fmt.Println(query)
 	resultRows,err:= Db.Query(query, id,slug)
 
-	fmt.Println(err)
+	if err!=nil{
+		fmt.Println(err)}
 	//fmt.Println(err)
 	defer resultRows.Close()
 
@@ -241,3 +246,55 @@ func GetThreadById(Db *sql.DB, id int, slug string) []Models.Thread {
 
 	return threads
 }
+
+
+func UpdateThread(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request) {
+	//fmt.Println(Db)
+	respWriter.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	slug := mux.Vars(request)["slug"]
+	//fmt.Println(request)
+	id, _:= strconv.Atoi(slug)
+	thread := Models.Thread{}
+
+	if err := json.NewDecoder(request.Body).Decode(&thread); err != nil {
+		panic(err)
+	}
+	//user.Nickname = nickname
+	oldthread := []Models.Thread{}
+	oldthread= GetThreadBySlugorID(Db, slug,id)
+	//forum.User=checkuser.Nickname
+	//fmt.Println(res)
+	if len(oldthread)==0{
+		respWriter.WriteHeader(http.StatusNotFound)
+		tmp2:=errr{"Can't find user with nickname: "+slug}
+		writeJSONBody(&respWriter, tmp2)
+		return
+	}
+	if thread.Author==""{
+		thread.Author=oldthread[0].Author
+	}
+	if thread.ID==0{
+		thread.ID=oldthread[0].ID
+	}
+	if thread.Forum==""{
+		thread.Forum=oldthread[0].Forum
+	}
+	if thread.Created==""{
+		thread.Created=oldthread[0].Created
+	}
+	if thread.Message==""{
+		thread.Message=oldthread[0].Message
+	}
+	if thread.Slug==""{
+		thread.Slug=oldthread[0].Slug
+	}
+	if thread.Title==""{
+		thread.Title=oldthread[0].Title
+	}
+	updateUserQuery := `UPDATE threads set author =$1, forum = $2, message = $3, slug=$4, title=$5  where lower (slug)=lower ($6) or id=$7;`
+
+	_, _ = Db.Exec(updateUserQuery,  thread.Author,thread.Forum,thread.Message,thread.Slug,thread.Title,slug,id)
+	respWriter.WriteHeader(http.StatusOK)
+	writeJSONBody(&respWriter, thread)
+	}

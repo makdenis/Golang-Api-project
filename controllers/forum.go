@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"strconv"
 
 	//"github.com/gorilla/mux"
 	"net/http"
@@ -66,7 +67,7 @@ func AddForum(Db *sql.DB, forum *Models.Forum, respWriter http.ResponseWriter) (
 	checkuser:=GetUsersByEmailOrNick(Db,"",forum.User)
 	if len(checkuser)==0{
 		respWriter.WriteHeader(http.StatusNotFound)
-		tmp:=err{"Can't find user with nickname: "+forum.User}
+		tmp:=errr{"Can't find user with nickname: "+forum.User}
 		writeJSONBody(&respWriter, tmp)
 		return false, nil, Models.User{}
 	}
@@ -91,11 +92,15 @@ func GetForum(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request)
 	//fmt.Println(nickname)
 	//fmt.Println("get")
 	forum:= make([]Models.Forum, 0)
+	id, _:= strconv.Atoi(slug)
 
+	updateUserQuery := `UPDATE forums set posts = (select count (*) from posts2 where lower (forum)=lower($1)), threads =  (select count (*) from threads where lower (forum)=lower($1))  where lower (slug)=lower ($1) or id=$2;`
+
+	_, _ = Db.Exec(updateUserQuery,slug,id  )
 	forum=GetForumBySlug(Db,slug)
 	if len(forum)==0{
 		respWriter.WriteHeader(http.StatusNotFound)
-		tmp:=err{"Can't find user by nickname: "+slug}
+		tmp:=errr{"Can't find user by nickname: "+slug}
 		writeJSONBody(&respWriter, tmp)
 	}else{
 		respWriter.WriteHeader(http.StatusOK)
@@ -107,14 +112,14 @@ func GetForum(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request)
 func GetForumBySlug(Db *sql.DB, slug string) []Models.Forum {
 	forums := make([]Models.Forum, 0)
 
-	query := "SELECT author::text, title::text, slug::text FROM forums WHERE LOWER(slug) = LOWER($1)"
+	query := "SELECT author::text, title::text, slug::text, posts::integer, threads::integer FROM forums WHERE LOWER(slug) = LOWER($1)"
 
 	resultRows, _ := Db.Query(query, slug)
 	defer resultRows.Close()
 
 	for resultRows.Next() {
 		forum := new(Models.Forum)
-		err := resultRows.Scan(&forum.User, &forum.Title, &forum.Slug)
+		err := resultRows.Scan(&forum.User, &forum.Title, &forum.Slug,&forum.Posts,&forum.Threads)
 		if err != nil {
 			panic(err)
 		}
@@ -124,3 +129,19 @@ func GetForumBySlug(Db *sql.DB, slug string) []Models.Forum {
 
 	return forums
 }
+
+//func GetForumDetails(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request) {
+//	forums := make([]Models.Forum, 0)
+//	slug := mux.Vars(request)["slug"]
+//	id, _:= strconv.Atoi(slug)
+//
+//	updateUserQuery := `UPDATE forums set posts2 = (select count (*) from posts2 where lower (forum)=lower($1)), threads =  (select count (*) from threads where lower (forum)=lower($1))  where lower (slug)=lower ($1) or id=$2;`
+//
+//	_, _ = Db.Exec(updateUserQuery,slug,id  )
+//	forums=GetForumBySlug(Db, slug)
+//	respWriter.WriteHeader(http.StatusOK)
+//	writeJSONBody(&respWriter, forums)
+//	}
+//
+//
+//

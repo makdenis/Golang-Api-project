@@ -18,20 +18,6 @@ import (
 
 
 
-//func format(rs []record) {
-//	var max, tmp int
-//	for _, v := range rs {
-//		tmp = utf8.RuneCountInString(v.name)
-//		if max < tmp {
-//			max = tmp
-//		}
-//	}
-//	s := "%-" + strconv.Itoa(max) + "s"
-//	for _, v := range rs {
-//		fmt.Printf("%3d   "+s+"   %s\n", v.id, v.name, v.phone)
-//	}
-//}
-
 
 
 var Db *sql.DB

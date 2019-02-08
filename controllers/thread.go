@@ -12,69 +12,45 @@ import (
 )
 
 func CreateThread(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request) {
-	//fmt.Println(Db)
 	respWriter.Header().Set("Content-Type", "application/json; charset=utf-8")
-
 	slug := mux.Vars(request)["slug"]
-	//fmt.Println(request)
-
 	thread := Models.Thread{}
-
 	if err := json.NewDecoder(request.Body).Decode(&thread); err != nil {
 		panic(err)
 	}
-	//user.Nickname = nickname
-
 	res, checkThreads, forumName:= AddThread(Db, thread.Slug,thread.Author,slug, respWriter)
-	//forum.User=checkuser.Nickname
-	//fmt.Println(res)
 	if(forumName==""){
 		respWriter.WriteHeader(http.StatusNotFound)
 		tmp2:=errr{"Can't find user with nickname: "+slug}
 		writeJSONBody(&respWriter, tmp2)
 		return
 	}
-//	fmt.Println(forumName)
 	thread.Forum=forumName
 	if !res && checkThreads==nil {
 		return}
 	if res && len(checkThreads)==0{
 	var row *sql.Row
-
 	if(thread.Created==""){
 		insertUserQuery := `insert into threads (author,  forum, message, title, slug) values ($1, $2, $3, $4, $5)  returning id;`
-
 		row= Db.QueryRow(insertUserQuery, thread.Author,  thread.Forum, thread.Message, thread.Title, thread.Slug)
-
 	}else{
 		insertUserQuery := `insert into threads (author, created, forum, message, title, slug) values ($1, $2, $3, $4, $5, $6)  returning id;`
-
 		row= Db.QueryRow(insertUserQuery, thread.Author, thread.Created, thread.Forum, thread.Message, thread.Title, thread.Slug)
 	}
-	//fmt.Println("ddd")
-	//fmt.Println(row)
-	id:=42
-	//defer rows.Close()
-
-	//for rows.Next() {
+ 	id:=42
 	row.Scan(&id)
-	//fmt.Println(thread)
-	//fmt.Println(kek)
 	thread.ID=id
 		respWriter.WriteHeader(http.StatusCreated)
 		writeJSONBody(&respWriter, thread)
 	}else{
-
 		respWriter.WriteHeader(http.StatusConflict)
 		writeJSONBody(&respWriter, checkThreads[0])
 	}}
 
 func AddThread(Db *sql.DB, slug, author, forum string, respWriter http.ResponseWriter) (bool, []Models.Thread, string) {
-	//fmt.Println
 	var forumName string
 	tmp := []Models.Forum{}
 	tmp=GetForumBySlug(Db, forum)
-	//thread.Slug=slug
 	if len(tmp)>0{
 		forumName=tmp[0].Slug
 	}
@@ -88,22 +64,9 @@ func AddThread(Db *sql.DB, slug, author, forum string, respWriter http.ResponseW
 	var checkThreads []Models.Thread
 	if slug!=""{
 	checkThreads=GetThreadBySlugorID(Db,slug,0)}
-	//if len(checkThreads)==0{
-	//	respWriter.WriteHeader(http.StatusNotFound)
-	//	tmp:=err{"Can't find user with nickname: "+forum.User}
-	//	writeJSONBody(&respWriter, tmp)
-	//	return false, nil, Models.User{}
-	//}
-	//fmt.Println(slug)
-	//fmt.Println(checkThreads)
-	//if len(conflictforums) == 2 && conflictforums[0] == conflictforums[1] {
-	//	conflictforums = conflictforums[:1]
-	//}
-
 	if len(checkThreads) > 0 {
 		return false, checkThreads, forumName
 	}
-
 	return true, checkThreads,forumName
 }
 
@@ -126,19 +89,14 @@ func GetThread(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request
 		}
 	}
 	forum := mux.Vars(request)["slug"]
-	//fmt.Println(nickname)
-	//fmt.Println("get")
 	forums:=GetForumBySlug(Db, forum)
 	threads:= make([]Models.Thread, 0)
-
 	threads=GetThreadByForum(Db,forum,limit, since,desc)
-	//fmt.Println(threads)
 	if len(forums)==0{
 		respWriter.WriteHeader(http.StatusNotFound)
 		tmp:=errr{"Can't find user by slug: "+forum}
 		writeJSONBody(&respWriter, tmp)
 	}else{
-
 		respWriter.WriteHeader(http.StatusOK)
 		writeJSONBody(&respWriter, threads)
 	}
@@ -146,40 +104,26 @@ func GetThread(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request
 
 func GetThreadBySlugorID(Db *sql.DB, slug string,id int) []Models.Thread {
 	threads := make([]Models.Thread, 0)
-
 	query:="SELECT author::text, created::timestamp, forum::text, id::integer, message::text, slug::text,title::text, votes::integer FROM threads WHERE LOWER(slug) = LOWER($1) or id = $2 "
-
 	var resultRows *sql.Rows
-
-
-
-	//fmt.Println(query)
 	resultRows,errr:= Db.Query(query, slug,id)
-
 	if errr!=nil{
 		fmt.Println(errr)}
-	//fmt.Println(err)
 	defer resultRows.Close()
-
 	for resultRows.Next() {
 		thread := new(Models.Thread)
 		err := resultRows.Scan(&thread.Author, &thread.Created, &thread.Forum, &thread.ID, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 		if err != nil {		}
-
 		threads = append(threads, *thread)
 	}
 	resultRows.Close()
 	return threads
 }
 
-
-
 func GetThreadByForum(Db *sql.DB, slug string, limit, since string, desc bool) []Models.Thread {
 	threads := make([]Models.Thread, 0)
 	query:="SELECT author::text, created::timestamp, forum::text, id::integer, message::text, slug::text,title::text, votes::integer FROM threads WHERE LOWER(forum) = LOWER($1) "
-
 	var resultRows *sql.Rows
-
 	if since!="" {
 		t, err := time.Parse(time.RFC3339Nano, since)
 		if err != nil {
@@ -191,7 +135,6 @@ func GetThreadByForum(Db *sql.DB, slug string, limit, since string, desc bool) [
 		}else{
 			query+="and created >= "+ "'"+since+ "'"
 		}
-
 	}
 	if desc{
 	query+=" order by created desc  "
@@ -201,70 +144,45 @@ func GetThreadByForum(Db *sql.DB, slug string, limit, since string, desc bool) [
 	if limit!="" {
 		query +="limit "+limit
 		}
-
-
-	//fmt.Println(query)
-		resultRows,_= Db.Query(query, slug)
-
-	//fmt.Println(err)
-	//fmt.Println(err)
+	resultRows,_= Db.Query(query, slug)
 	defer resultRows.Close()
-
 	for resultRows.Next() {
 		thread := new(Models.Thread)
 		err := resultRows.Scan(&thread.Author, &thread.Created, &thread.Forum, &thread.ID, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 		if err != nil {		}
-
 		threads = append(threads, *thread)
 	}
-
 	return threads
 }
 
 func GetThreadById(Db *sql.DB, id int, slug string) []Models.Thread {
 	threads := make([]Models.Thread, 0)
 	query:="SELECT author::text, created::timestamp, forum::text, id::integer, message::text, slug::text,title::text, votes::integer FROM threads WHERE id = $1 or LOWER(slug) = LOWER($2)"
-
 	var resultRows *sql.Rows
-
-
-	//fmt.Println(query)
 	resultRows,err:= Db.Query(query, id,slug)
-
 	if err!=nil{
 		fmt.Println(err)}
-	//fmt.Println(err)
 	defer resultRows.Close()
-
 	for resultRows.Next() {
 		thread := new(Models.Thread)
 		err := resultRows.Scan(&thread.Author, &thread.Created, &thread.Forum, &thread.ID, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 		if err != nil {		}
-
 		threads = append(threads, *thread)
 	}
-
 	return threads
 }
 
 
 func UpdateThread(Db *sql.DB, respWriter http.ResponseWriter, request *http.Request) {
-	//fmt.Println(Db)
 	respWriter.Header().Set("Content-Type", "application/json; charset=utf-8")
-
 	slug := mux.Vars(request)["slug"]
-	//fmt.Println(request)
 	id, _:= strconv.Atoi(slug)
 	thread := Models.Thread{}
-
 	if err := json.NewDecoder(request.Body).Decode(&thread); err != nil {
 		panic(err)
 	}
-	//user.Nickname = nickname
 	oldthread := []Models.Thread{}
 	oldthread= GetThreadBySlugorID(Db, slug,id)
-	//forum.User=checkuser.Nickname
-	//fmt.Println(res)
 	if len(oldthread)==0{
 		respWriter.WriteHeader(http.StatusNotFound)
 		tmp2:=errr{"Can't find user with nickname: "+slug}
@@ -293,7 +211,6 @@ func UpdateThread(Db *sql.DB, respWriter http.ResponseWriter, request *http.Requ
 		thread.Title=oldthread[0].Title
 	}
 	updateUserQuery := `UPDATE threads set author =$1, forum = $2, message = $3, slug=$4, title=$5  where lower (slug)=lower ($6) or id=$7;`
-
 	_, _ = Db.Exec(updateUserQuery,  thread.Author,thread.Forum,thread.Message,thread.Slug,thread.Title,slug,id)
 	respWriter.WriteHeader(http.StatusOK)
 	writeJSONBody(&respWriter, thread)
